@@ -305,8 +305,7 @@ def _import_data_to_catalog(
                 _catalog, csv_path, inst, bar_type, data_cfg, cfg, feed_idx, total_feeds
             )
 
-        sys.stdout.write(status_msg)
-        sys.stdout.flush()
+        logger.info(status_msg, end="", flush=True)
 
         # 归类数据流
         if data_cfg.label == "benchmark":
@@ -697,10 +696,76 @@ def _load_custom_data_to_engine(
         logger.warning("⚠️ No date range specified, skipping custom data loading")
         return
 
-    # 注意：高级回测引擎暂不支持 OI/Funding 自定义数据加载
-    # 这些数据的加载逻辑主要为低级回测引擎设计
-    # 如需使用 OI/Funding 数据，请使用低级回测引擎 (--type low)
-    logger.debug("📊 Custom data (OI, Funding Rate) loading skipped in high-level engine")
+    logger.info("📊 Loading custom data (OI, Funding Rate)...")
+
+    try:
+        # 构建引擎
+        node.build()
+        engine = node.get_engine(run_config.id)
+
+        if engine is None:
+            logger.warning("⚠️ Could not get engine from node")
+            return
+
+        # 加载自定义数据
+        from utils.oi_funding_adapter import merge_custom_data_with_bars
+
+        data_dir = base_dir / "data" / "raw"
+        total_loaded = 0
+
+        for inst_id_str, inst in loaded_instruments.items():
+            instrument_id = inst.id
+            symbol = str(instrument_id.symbol).split("-")[0]  # BTCUSDT-PERP -> BTCUSDT
+            symbol_dir = data_dir / symbol
+
+            if not symbol_dir.exists():
+                continue
+
+            # 查找数据文件
+            oi_files = list(symbol_dir.glob("*-oi-1h-*.csv"))
+            funding_files = list(symbol_dir.glob("*-funding-*.csv"))
+
+            oi_data_list = []
+            funding_data_list = []
+
+            # 加载OI数据
+            if oi_files:
+                loader = OIFundingDataLoader(base_dir)
+                for oi_file in oi_files:
+                    oi_data_list.extend(loader.load_oi_data(
+                        symbol=symbol,
+                        instrument_id=instrument_id,
+                        start_date=cfg.start_date,
+                        end_date=cfg.end_date,
+                        exchange=cfg.instrument.venue_name.lower() if cfg.instrument else "binance"
+                    ))
+
+            # 加载Funding Rate数据
+            if funding_files:
+                loader = OIFundingDataLoader(base_dir)
+                for funding_file in funding_files:
+                    funding_data_list.extend(loader.load_funding_data(
+                        symbol=symbol,
+                        instrument_id=instrument_id,
+                        start_date=cfg.start_date,
+                        end_date=cfg.end_date,
+                        exchange=cfg.instrument.venue_name.lower() if cfg.instrument else "binance"
+                    ))
+
+            # 合并并添加到引擎
+            if oi_data_list or funding_data_list:
+                merged_data = merge_custom_data_with_bars(
+                    oi_data_list, funding_data_list
+                )
+                engine.add_data(merged_data)
+                total_loaded += len(merged_data)
+                logger.info(f"   ✅ Added {len(merged_data)} custom data points for {symbol}")
+
+        logger.info(f"✅ Total custom data loaded: {total_loaded} points")
+
+    except Exception as e:
+        logger.error(f"⚠️ Custom data loading failed: {e}")
+        logger.info("Strategy will run without OI/Funding data")
 
 # ============================================================
 # 结果处理模块
@@ -1131,10 +1196,16 @@ def catalog_loader(
             f"Expected 'datetime' or 'timestamp', got: {list(sample_df.columns)}"
         )
 
-    # 2. 高效加载 CSV（使用统一的数据加载器）
-    from utils.data_management.data_loader import load_ohlcv_csv
-
-    df: DataFrame = load_ohlcv_csv(csv_path=csv_path)
+    # 2. 高效加载 CSV（使用检测到的列名）
+    # 注意：必须使用 index_col='<time_col>' 而非 index_col=0
+    # 因为 usecols 会改变列的相对位置，index_col=0 会错误地把 'open' 作为索引
+    df: DataFrame = CSVBarDataLoader.load(
+        file_path=csv_path,
+        index_col=time_col,  # 动态使用检测到的列名
+        usecols=[time_col, "open", "high", "low", "close", "volume"],
+        parse_dates=True,
+    )
+    df.sort_index(inplace=True)
 
     # 3. 转换并写入
     # Wrangler 将 DataFrame 转换为 NT 内部的 Bar 序列

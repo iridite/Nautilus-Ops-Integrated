@@ -18,7 +18,7 @@ class BaseStrategyConfig(StrategyConfig):  # pyright: ignore[reportGeneralTypeIs
     Provides unified interface for position sizing, risk management, and data dependencies.
     """
 
-    oms_type: str = "NETTING"
+    oms_type: str = "NETTING"  # 持仓模式：NETTING（净持仓）或 HEDGING（对冲持仓），默认从环境配置读取
 
     # 简化配置字段（推荐使用）
     symbol: str = ""  # 简化标的名称，如 "ETHUSDT"（永续）或 "ETH"（现货）
@@ -88,6 +88,10 @@ class BaseStrategy(Strategy):
         self.base_config = config
         self.instrument: Instrument = None
 
+        # HEDGING 模式持仓跟踪器
+        self._positions_tracker = {}  # {position_id: {side, entry_price, extreme_price, entry_time}}
+        self._pending_orders = {}  # {order_id: metadata}
+
     def on_start(self):
         """
         Lifecycle hook: Strategy Setup.
@@ -117,6 +121,10 @@ class BaseStrategy(Strategy):
         Base lifecycle for bar processing.
         Subclasses MUST call super().on_bar(bar) to enable automated risk management.
         """
+        # 更新 HEDGING 模式的持仓跟踪器
+        if self.base_config.oms_type == "HEDGING":
+            self._update_positions_tracker(bar)
+
         self._manage_auto_stop_loss()
 
     def _manage_auto_stop_loss(self):
@@ -168,6 +176,11 @@ class BaseStrategy(Strategy):
         super().on_position_closed(event)
         if self.instrument and event.instrument_id == self.instrument.id:
             self.cancel_all_orders(event.instrument_id)
+
+            # 清理 HEDGING 模式的持仓跟踪
+            if event.position_id in self._positions_tracker:
+                del self._positions_tracker[event.position_id]
+
             self.log.info(
                 f"BaseStrategy: Position closed for {event.instrument_id}, all orders cancelled."
             )
@@ -382,6 +395,83 @@ class BaseStrategy(Strategy):
         Strategy Reset.
         """
         self.instrument = None
+        self._positions_tracker = {}
+        self._pending_orders = {}
+
+    # ========================================================================
+    # HEDGING Mode Position Tracking
+    # ========================================================================
+
+    def _update_positions_tracker(self, bar):
+        """更新 HEDGING 模式的持仓跟踪器（自动调用）"""
+        if not self.instrument:
+            return
+
+        positions = self.cache.positions_open(instrument_id=self.instrument.id)
+        for pos in positions:
+            pos_id = pos.id
+            if pos_id not in self._positions_tracker:
+                # 恢复持仓跟踪（策略重启场景）
+                side_str = 'LONG' if pos.side == PositionSide.LONG else 'SHORT'
+                self._positions_tracker[pos_id] = {
+                    'side': side_str,
+                    'entry_price': float(pos.avg_px_open),
+                    'extreme_price': float(bar.high if side_str == 'LONG' else bar.low),
+                    'entry_time': pos.ts_opened
+                }
+            else:
+                # 更新极值价格（多头跟踪最高价，空头跟踪最低价）
+                tracker = self._positions_tracker[pos_id]
+                if tracker['side'] == 'LONG':
+                    tracker['extreme_price'] = max(tracker['extreme_price'], float(bar.high))
+                else:  # SHORT
+                    tracker['extreme_price'] = min(tracker['extreme_price'], float(bar.low))
+
+    def track_order_for_position(self, order_id, side: OrderSide, bar, **metadata):
+        """记录订单元数据，等待成交后关联持仓
+
+        Args:
+            order_id: 订单ID
+            side: 订单方向（OrderSide.BUY 或 OrderSide.SELL）
+            bar: 当前 K 线
+            **metadata: 额外的元数据（如 high_conviction 等）
+        """
+        self._pending_orders[order_id] = {
+            'side': side.name,
+            'entry_price': float(bar.close),
+            'extreme_price': float(bar.high if side == OrderSide.BUY else bar.low),
+            'entry_time': bar.ts_event,
+            **metadata
+        }
+
+    def on_order_filled(self, event):
+        """订单成交回调（HEDGING 模式：自动关联订单与持仓）"""
+        super().on_order_filled(event)
+
+        # 检查是否是入场订单
+        order_id = event.client_order_id
+        if order_id in self._pending_orders:
+            # 获取订单元数据
+            metadata = self._pending_orders.pop(order_id)
+
+            # 查找新创建的持仓
+            if self.instrument:
+                positions = self.cache.positions_open(instrument_id=self.instrument.id)
+                for pos in positions:
+                    if pos.id not in self._positions_tracker:
+                        # 关联持仓与元数据
+                        self._positions_tracker[pos.id] = metadata
+                        self.log.info(f"持仓跟踪已建立: Position {pos.id}")
+                        break
+
+    def on_order_rejected(self, event):
+        """订单拒绝回调（HEDGING 模式：清理被拒绝的订单）"""
+        super().on_order_rejected(event)
+
+        # 清理被拒绝的订单
+        order_id = event.client_order_id
+        if order_id in self._pending_orders:
+            del self._pending_orders[order_id]
 
     # ========================================================================
     # ATR-Based Risk Management Methods

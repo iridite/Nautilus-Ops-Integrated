@@ -403,7 +403,7 @@ def run_low_level(cfg: BacktestConfig, base_dir: Path):
         venue_name = cfg.instrument.venue_name if cfg.instrument else "BINANCE"
 
         # 从策略配置中读取 oms_type
-        oms_type_str = getattr(cfg.strategy_config, 'oms_type', 'HEDGING')
+        oms_type_str = getattr(cfg.strategy.params if hasattr(cfg.strategy, 'params') else {}, 'oms_type', 'HEDGING')
         oms_type = OmsType.HEDGING if oms_type_str == 'HEDGING' else OmsType.NETTING
 
         engine.add_venue(

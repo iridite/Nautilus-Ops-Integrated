@@ -20,10 +20,3 @@ log/**
 .aider*
 .env
 test.env
-
-# Coverage reports
-htmlcov/
-.coverage
-coverage.json
-coverage.xml
-.pytest_cache/

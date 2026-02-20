@@ -1,29 +1,4 @@
-Metadata-Version: 2.4
-Name: nautilus-practice
-Version: 0.1.0
-Summary: Add your description here
-Requires-Python: <3.13,>=3.12.12
-Description-Content-Type: text/markdown
-Requires-Dist: ccxt>=4.5.28
-Requires-Dist: joblib>=1.5.3
-Requires-Dist: jupyterlab>=4.5.1
-Requires-Dist: lightgbm>=4.6.0
-Requires-Dist: nautilus-trader
-Requires-Dist: pandas-stubs~=2.3.3
-Requires-Dist: plotly>=6.5.0
-Requires-Dist: pydantic>=2.12.5
-Requires-Dist: python-dotenv>=1.2.1
-Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: ruff>=0.15.0
-Requires-Dist: scikit-learn>=1.8.0
-Requires-Dist: ta>=0.11.0
-Requires-Dist: tqdm>=4.66.0
-
 # Nautilus Practice - Quantitative Trading Strategy Development Platform
-
-[![Sync to Public Repo](https://github.com/iridite/nautilus-practice/actions/workflows/sync_to_public.yml/badge.svg)](https://github.com/iridite/nautilus-practice/actions/workflows/sync_to_public.yml)
-[![Test Coverage](https://github.com/iridite/nautilus-practice/actions/workflows/test-coverage.yml/badge.svg)](https://github.com/iridite/nautilus-practice/actions/workflows/test-coverage.yml)
-![Coverage](https://img.shields.io/badge/coverage-28.69%25-red)
 
 A cryptocurrency quantitative trading strategy development and backtesting platform based on the NautilusTrader framework.
 

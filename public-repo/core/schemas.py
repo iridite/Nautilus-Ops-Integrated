@@ -153,10 +153,10 @@ class LegacyStrategyConfig(BaseModel):
         """将params转换为字典"""
         if isinstance(self.params, dict):
             return self.params.copy()
-        
+
         if hasattr(self.params, "__dict__"):
             return {k: v for k, v in self.params.__dict__.items() if not k.startswith("_")}
-        
+
         try:
             from msgspec import structs
             return structs.asdict(self.params)
@@ -252,7 +252,7 @@ class BacktestConfig(BaseModel):
         """添加主数据源到data_feeds"""
         if not self.data or self.data in self.data_feeds:
             return
-        
+
         if self.data.label == "main":
             self.data.label = "main"
         self.data_feeds.insert(0, self.data)
@@ -261,7 +261,7 @@ class BacktestConfig(BaseModel):
         """添加辅助数据源到data_feeds"""
         if not self.aux_data or self.aux_data in self.data_feeds:
             return
-        
+
         if self.aux_data.label == "main":
             self.aux_data.label = "trend"
         self.data_feeds.append(self.aux_data)
@@ -627,10 +627,11 @@ class ActiveConfig(BaseModel):
         """验证主交易标的格式（必须以 USDT 结尾）"""
         if not v or not v.strip():
             raise ValueError("Primary symbol cannot be empty")
-        # 基础格式验证
-        if not v.endswith("USDT"):
+        # 先转换为大写再验证
+        v_upper = v.strip().upper()
+        if not v_upper.endswith("USDT"):
             raise ValueError("Primary symbol must end with 'USDT'")
-        return v.strip().upper()
+        return v_upper
 
     @field_validator("timeframe", mode="before")
     @classmethod

@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 from nautilus_trader.model import Money
 from nautilus_trader.model.currencies import USDT
 from nautilus_trader.model.enums import BarAggregation, PriceType
-from pydantic import BaseModel, ConfigDict, Field, model_validator, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # 项目根目录
 project_root: Path = Path(__file__).parent.parent.resolve()
@@ -50,6 +50,21 @@ class InstrumentConfig(BaseModel):
         quote_currency: str,
         inst_type: InstrumentType,
     ) -> str:
+        """
+        根据交易所和货币对生成标准化的 instrument_id
+
+        Args:
+            venue_name: 交易所名称（OKX, BINANCE）
+            base_currency: 基础货币（USDT）
+            quote_currency: 报价货币（BTC, ETH）
+            inst_type: 合约类型（SPOT, SWAP, FUTURES）
+
+        Returns:
+            标准化的 instrument_id 字符串
+
+        Raises:
+            ValueError: 不支持的交易所
+        """
         if venue_name == "OKX":
             return f"{quote_currency}-{base_currency}-{inst_type.value}.{venue_name}"
         elif venue_name == "BINANCE":
@@ -63,9 +78,11 @@ class InstrumentConfig(BaseModel):
             raise ValueError(f"Unsupported venue: {venue_name}")
 
     def get_symbol(self) -> str:
+        """获取交易对符号（如 BTCUSDT）"""
         return f"{self.quote_currency}{self.base_currency}"
 
     def get_json_path(self) -> Path:
+        """获取合约定义 JSON 文件的路径"""
         return (
             project_root
             / "data"
@@ -76,6 +93,7 @@ class InstrumentConfig(BaseModel):
 
     @property
     def instrument_id(self) -> str:
+        """获取标准化的 instrument_id"""
         return self.get_id_for(
             venue_name=self.venue_name,
             base_currency=self.base_currency,
@@ -102,10 +120,12 @@ class DataConfig(BaseModel):
 
     @property
     def full_path(self) -> Path:
+        """获取数据文件的完整路径"""
         return project_root / "data" / "raw" / self.csv_file_name
 
     @property
     def bar_type_str(self) -> str:
+        """获取 bar_type 字符串表示（如 1-HOUR-LAST-EXTERNAL）"""
         return f"{self.bar_period}-{self.bar_aggregation.name}-{self.price_type.name}-{self.origination}"
 
 
@@ -124,6 +144,7 @@ class LegacyStrategyConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def resolve_config_class(self) -> str:
+        """解析策略配置类名（如果未指定则自动生成）"""
         if self.config_class:
             return self.config_class
         return f"{self.name.replace('Strategy', '')}Config"
@@ -171,6 +192,17 @@ class LegacyStrategyConfig(BaseModel):
         leverage: int,
         feed_bar_types: Dict[str, Any],
     ) -> Dict[str, Any]:
+        """
+        解析并合并策略参数
+
+        Args:
+            instrument_id: 合约标识符
+            leverage: 杠杆倍数
+            feed_bar_types: 数据流的 bar 类型映射
+
+        Returns:
+            合并后的参数字典
+        """
         p = self._convert_params_to_dict()
         self._add_basic_params(p, instrument_id, leverage)
         self._add_main_bar_types(p, feed_bar_types)
@@ -265,28 +297,36 @@ class TradingConfig(BaseModel):
     main_timeframe: str = "1h"
     trend_timeframe: str = "4h"
 
-    @validator("venue")
+    @field_validator("venue", mode="before")
+    @classmethod
     def validate_venue(cls, v):
+        """验证交易所名称是否支持"""
         supported_venues = ["BINANCE", "OKX"]
         if v.upper() not in supported_venues:
             raise ValueError(f"Venue must be one of {supported_venues}")
         return v.upper()
 
-    @validator("instrument_type")
+    @field_validator("instrument_type", mode="before")
+    @classmethod
     def validate_instrument_type(cls, v):
+        """验证合约类型是否有效"""
         valid_types = ["SPOT", "FUTURES", "SWAP", "OPTION"]
         if v.upper() not in valid_types:
             raise ValueError(f"Instrument type must be one of {valid_types}")
         return v.upper()
 
-    @validator("initial_balance")
+    @field_validator("initial_balance", mode="before")
+    @classmethod
     def validate_initial_balance(cls, v):
+        """验证初始余额必须为正数"""
         if v <= 0:
             raise ValueError("Initial balance must be positive")
         return v
 
-    @validator("main_timeframe", "trend_timeframe")
+    @field_validator("main_timeframe", "trend_timeframe", mode="before")
+    @classmethod
     def validate_timeframe(cls, v):
+        """验证时间框架格式（如 1h, 4h, 1d）"""
         if not v or not isinstance(v, str):
             raise ValueError("Timeframe must be a non-empty string")
         if v[-1] not in ["m", "h", "d"]:
@@ -308,8 +348,10 @@ class BacktestPeriodConfig(BaseModel):
     start_date: str
     end_date: str
 
-    @validator("start_date", "end_date")
+    @field_validator("start_date", "end_date", mode="before")
+    @classmethod
     def validate_date_format(cls, v):
+        """验证日期格式为 YYYY-MM-DD"""
         try:
             datetime.strptime(v, "%Y-%m-%d")
         except ValueError:
@@ -318,6 +360,7 @@ class BacktestPeriodConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_date_range(self):
+        """验证开始日期必须早于结束日期"""
         start = self.start_date
         end = self.end_date
 
@@ -343,8 +386,10 @@ class LoggingConfig(BaseModel):
     components: Dict[str, str] = Field(default_factory=dict)
     components_only: bool = True
 
-    @validator("level", "file_level")
+    @field_validator("level", "file_level", mode="before")
+    @classmethod
     def validate_log_level(cls, v):
+        """验证日志级别是否有效"""
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if v.upper() not in valid_levels:
             raise ValueError(f"Log level must be one of {valid_levels}")
@@ -363,29 +408,38 @@ class FileCleanupConfig(BaseModel):
     keep_days: int = 7
     delete_days: int = 30
 
-    @validator("max_files_per_dir")
+    @field_validator("max_files_per_dir", mode="before")
+    @classmethod
     def validate_max_files(cls, v):
+        """验证最大文件数必须至少为 1"""
         if v < 1:
             raise ValueError("max_files_per_dir must be at least 1")
         return v
 
-    @validator("target_dirs")
+    @field_validator("target_dirs", mode="before")
+    @classmethod
     def validate_target_dirs(cls, v):
+        """验证目标目录列表不能为空"""
         if not v:
             raise ValueError("target_dirs cannot be empty")
         return v
 
-    @validator("keep_days")
+    @field_validator("keep_days", mode="before")
+    @classmethod
     def validate_keep_days(cls, v):
+        """验证保留天数必须至少为 1"""
         if v < 1:
             raise ValueError("keep_days must be at least 1")
         return v
 
-    @validator("delete_days")
-    def validate_delete_days(cls, v, values):
+    @field_validator("delete_days", mode="before")
+    @classmethod
+    def validate_delete_days(cls, v, info):
+        """验证删除天数必须大于等于保留天数"""
         if v < 1:
             raise ValueError("delete_days must be at least 1")
-        if "keep_days" in values and v < values["keep_days"]:
+        # Pydantic V2: 使用 info.data 访问其他字段
+        if info.data and "keep_days" in info.data and v < info.data["keep_days"]:
             raise ValueError("delete_days must be >= keep_days")
         return v
 
@@ -402,14 +456,18 @@ class StrategyConfig(BaseModel):
     config_class: Optional[str] = None
     parameters: Dict[str, Any] = Field(default_factory=dict)
 
-    @validator("name")
+    @field_validator("name", mode="before")
+    @classmethod
     def validate_name(cls, v):
+        """验证策略名称不能为空"""
         if not v or not v.strip():
             raise ValueError("Strategy name cannot be empty")
         return v.strip()
 
-    @validator("module_path")
+    @field_validator("module_path", mode="before")
+    @classmethod
     def validate_module_path(cls, v):
+        """验证模块路径不能为空"""
         if not v or not v.strip():
             raise ValueError("Module path cannot be empty")
         return v.strip()
@@ -454,15 +512,19 @@ class SandboxConfig(BaseModel):
     # directory may not be populated. Default is False (strict validation).
     allow_missing_instruments: bool = False
 
-    @validator("venue")
+    @field_validator("venue", mode="before")
+    @classmethod
     def validate_venue(cls, v):
+        """验证交易所名称是否支持"""
         supported = ["OKX", "BINANCE"]
         if v.upper() not in supported:
             raise ValueError(f"Venue must be one of {supported}")
         return v.upper()
 
-    @validator("instrument_ids")
+    @field_validator("instrument_ids", mode="before")
+    @classmethod
     def validate_instruments(cls, v):
+        """验证至少需要一个合约标识符"""
         if not v:
             raise ValueError("At least one instrument_id is required")
         return v
@@ -493,15 +555,19 @@ class LiveConfig(BaseModel):
     # 缓存配置
     flush_cache_on_start: bool = False
 
-    @validator("venue")
+    @field_validator("venue", mode="before")
+    @classmethod
     def validate_venue(cls, v):
+        """验证交易所名称是否支持"""
         supported = ["OKX", "BINANCE"]
         if v.upper() not in supported:
             raise ValueError(f"Venue must be one of {supported}")
         return v.upper()
 
-    @validator("instrument_ids")
+    @field_validator("instrument_ids", mode="before")
+    @classmethod
     def validate_instruments(cls, v):
+        """验证至少需要一个合约标识符"""
         if not v:
             raise ValueError("At least one instrument_id is required")
         return v
@@ -514,6 +580,8 @@ class LiveConfig(BaseModel):
 class EnvironmentConfig(BaseModel):
     """环境配置"""
 
+    model_config = ConfigDict(extra='allow')
+
     extends: Optional[str] = None  # 继承的父配置文件
     trading: TradingConfig = Field(default_factory=TradingConfig)
     backtest: BacktestPeriodConfig
@@ -521,10 +589,6 @@ class EnvironmentConfig(BaseModel):
     file_cleanup: FileCleanupConfig = Field(default_factory=FileCleanupConfig)
     sandbox: Optional[SandboxConfig] = None
     live: Optional[LiveConfig] = None
-
-    class Config:
-        # 允许额外字段，用于扩展配置
-        extra = "allow"
 
 
 class ActiveConfig(BaseModel):
@@ -541,20 +605,26 @@ class ActiveConfig(BaseModel):
 
     overrides: Optional[Dict[str, Any]] = None
 
-    @validator("environment")
+    @field_validator("environment", mode="before")
+    @classmethod
     def validate_environment(cls, v):
+        """验证环境名称不能为空"""
         if not v or not v.strip():
             raise ValueError("Environment cannot be empty")
         return v.strip()
 
-    @validator("strategy")
+    @field_validator("strategy", mode="before")
+    @classmethod
     def validate_strategy(cls, v):
+        """验证策略名称不能为空"""
         if not v or not v.strip():
             raise ValueError("Strategy cannot be empty")
         return v.strip()
 
-    @validator("primary_symbol")
+    @field_validator("primary_symbol", mode="before")
+    @classmethod
     def validate_primary_symbol(cls, v):
+        """验证主交易标的格式（必须以 USDT 结尾）"""
         if not v or not v.strip():
             raise ValueError("Primary symbol cannot be empty")
         # 基础格式验证
@@ -562,17 +632,19 @@ class ActiveConfig(BaseModel):
             raise ValueError("Primary symbol must end with 'USDT'")
         return v.strip().upper()
 
-    @validator("timeframe")
+    @field_validator("timeframe", mode="before")
+    @classmethod
     def validate_timeframe(cls, v):
+        """验证时间框架格式（可选）"""
         if v is None:
             return v
-        
+
         if not v or not isinstance(v, str):
             raise ValueError("Timeframe must be a non-empty string")
-        
+
         if v[-1] not in ["m", "h", "d"]:
             raise ValueError("Timeframe must end with 'm', 'h', or 'd'")
-        
+
         cls._validate_timeframe_period(v)
         return v
 
@@ -586,8 +658,10 @@ class ActiveConfig(BaseModel):
         except ValueError:
             raise ValueError("Invalid timeframe format")
 
-    @validator("price_type")
+    @field_validator("price_type", mode="before")
+    @classmethod
     def validate_price_type(cls, v):
+        """验证价格类型是否有效（可选）"""
         if v is None:
             return v
         valid_types = ["LAST", "MID", "BID", "ASK"]
@@ -595,8 +669,10 @@ class ActiveConfig(BaseModel):
             raise ValueError(f"Price type must be one of {valid_types}")
         return v.upper()
 
-    @validator("origination")
+    @field_validator("origination", mode="before")
+    @classmethod
     def validate_origination(cls, v):
+        """验证数据来源是否有效（可选）"""
         if v is None:
             return v
         valid_types = ["EXTERNAL", "INTERNAL"]
@@ -612,6 +688,12 @@ class ConfigPaths:
     """配置文件路径管理"""
 
     def __init__(self, config_root: Optional[Path] = None):
+        """
+        初始化配置路径管理器
+
+        Args:
+            config_root: 配置文件根目录，默认为项目根目录下的 config 文件夹
+        """
         self.config_root = config_root or (project_root / "config")
         self.yaml_dir = self.config_root
         self.environments_dir = self.yaml_dir / "environments"

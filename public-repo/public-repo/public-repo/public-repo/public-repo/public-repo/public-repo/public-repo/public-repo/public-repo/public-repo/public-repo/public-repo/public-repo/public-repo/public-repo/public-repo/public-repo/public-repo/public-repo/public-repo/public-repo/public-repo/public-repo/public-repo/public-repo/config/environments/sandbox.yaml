@@ -1,28 +1,27 @@
-# Binance Sandbox 实时交易环境配置
-# 用于 Binance Testnet 测试环境
+# Sandbox实时交易环境配置
 
 extends: "prod.yaml"
 
-# Sandbox 特定配置
+# Sandbox特定配置
 sandbox:
-  venue: "BINANCE"
+  venue: "OKX"
   is_testnet: true
 
-  # 交易标的列表
+  # 交易标的列表（基于 active 策略 keltner_rs_breakout 的 symbols）
   # 注意：BTCUSDT 会由代码自动添加（如果策略需要），无需手动配置
   instrument_ids:
-    - "ETHUSDT-PERP.BINANCE"
-    - "SOLUSDT-PERP.BINANCE"
-    - "BNBUSDT-PERP.BINANCE"
-    - "DOGEUSDT-PERP.BINANCE"
+    - "ETHUSDT.OKX"
+    - "SOLUSDT.OKX"
+    - "BNBUSDT.OKX"
+    - "DOGEUSDT.OKX"
 
   # 允许本地缺失 instrument json 仅作为警告（便于开发/快速迭代）
   allow_missing_instruments: true
 
-  # API 环境变量名称
-  api_key_env: "BINANCE_TESTNET_API_KEY"
-  api_secret_env: "BINANCE_TESTNET_API_SECRET"
-  api_passphrase_env: ""  # Binance 不需要 passphrase
+  # API环境变量名称
+  api_key_env: "OKX_API_KEY"
+  api_secret_env: "OKX_API_SECRET"
+  api_passphrase_env: "OKX_API_PASSPHRASE"
 
   # 执行引擎配置
   reconciliation: true
@@ -44,7 +43,7 @@ logging:
 
 # 交易配置
 trading:
-  venue: "BINANCE"
+  venue: "OKX"
   instrument_type: "SWAP"
   initial_balance: 10000
   currency: "USDT"

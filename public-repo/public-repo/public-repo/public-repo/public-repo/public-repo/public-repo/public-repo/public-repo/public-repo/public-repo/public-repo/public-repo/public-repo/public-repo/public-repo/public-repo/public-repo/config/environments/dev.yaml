@@ -13,10 +13,10 @@ logging:
   level: "DEBUG"
   file_level: "DEBUG"
   components:
-    BacktestEngine: "DEBUG"
+    BacktestEngine: "INFO"
     DataFeed: "DEBUG"
     Strategy: "DEBUG"
-    OrderMatchingEngine: "WARNING"
+    # not OrderMatchingEngine: "DEBUG"
   components_only: false
 
 # 开发环境使用较小的初始资金进行快速测试

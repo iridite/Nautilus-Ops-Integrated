@@ -5,6 +5,7 @@
 """
 
 import json
+import logging
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List
@@ -30,6 +31,8 @@ from .schemas import (
     StrategyConfig,
     project_root,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigAdapter:
@@ -207,19 +210,17 @@ class ConfigAdapter:
         if not symbol or not isinstance(symbol, str):
             raise ValueError(f"Invalid symbol: must be a non-empty string, got {type(symbol)}")
 
-        # 检查危险字符（路径遍历、命令注入）
-        dangerous_chars = ['..', '/', '\\', '\0', '\n', '\r', ';', '&', '|', '`', '$', '(', ')']
-        if any(char in symbol for char in dangerous_chars):
-            raise ValueError(f"Invalid symbol '{symbol}': contains dangerous characters")
-
-        # 验证符号格式（只允许字母、数字、冒号、斜杠、连字符）
+        # 验证符号格式（只允许字母、数字、冒号、斜杠、下划线、连字符）
         import re
-        if not re.match(r'^[A-Z0-9/:_-]+$', symbol, re.IGNORECASE):
-            raise ValueError(f"Invalid symbol format '{symbol}': only alphanumeric, :, /, _, - allowed")
+
+        if not re.match(r"^[A-Z0-9/:_-]+$", symbol, re.IGNORECASE):
+            raise ValueError(
+                f"Invalid symbol format '{symbol}': only alphanumeric characters, :, /, _, - allowed"
+            )
 
         # 验证符号长度（防止过长输入）
-        if len(symbol) > 50:
-            raise ValueError(f"Invalid symbol '{symbol}': exceeds maximum length of 50 characters")
+        if len(symbol) > 20:
+            raise ValueError(f"Invalid symbol '{symbol}': exceeds maximum length of 20 characters")
 
         if ":" in symbol:
             raw_pair = symbol.split(":")[0]
@@ -427,17 +428,25 @@ class ConfigAdapter:
         Falls back to original heuristic if helper fails for any reason.
         """
         # Local import to avoid circular dependency
-        from utils.instrument_helpers import format_aux_instrument_id
+        from utils.instrument_helpers import format_aux_instrument_id, normalize_symbol_to_internal
 
         venue = self.get_venue()
         inst_type = self.env_config.trading.instrument_type
+
+        # Normalize symbol to internal format (e.g., BTC-USDT-SWAP → BTCUSDT)
+        try:
+            normalized_symbol = normalize_symbol_to_internal(symbol)
+            logger.debug(f"Symbol normalization: {symbol} → {normalized_symbol}")
+        except ValueError as e:
+            logger.warning(f"Symbol normalization failed for '{symbol}': {e}, using as-is")
+            normalized_symbol = symbol
 
         try:
             # Use the helper which normalizes various aux symbol formats and composes
             # a canonical instrument_id. We explicitly pass env-driven inst_type and venue
             # to preserve adapter semantics.
             return format_aux_instrument_id(
-                symbol,
+                normalized_symbol,
                 template_inst_id=None,
                 venue=venue,
                 inst_type=inst_type,

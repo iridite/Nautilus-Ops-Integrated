@@ -1,0 +1,24 @@
+config_class: FundingArbitrageConfig
+module_path: strategy.funding_arbitrage
+name: FundingArbitrageStrategy
+parameters:
+  bar_type: BNBUSDT-PERP.BINANCE-1-HOUR-LAST-EXTERNAL
+  delta_tolerance: 0.005
+  emergency_margin_ratio: 0.3
+  entry_basis_pct: 0.0008
+  exit_basis_pct: -0.0005
+  instrument_id: BNBUSDT-PERP.BINANCE
+  max_holding_days: 90
+  max_position_risk_pct: 0.4
+  max_positions: 3
+  min_funding_rate_annual: 12.0
+  min_holding_days: 30
+  min_margin_ratio: 0.5
+  negative_funding_threshold: 3
+  oms_type: HEDGING
+  order_timeout_seconds: 5.0
+  origination: EXTERNAL
+  price_type: LAST
+  symbols:
+  - BNBUSDT
+  timeframe: 1h

@@ -788,13 +788,13 @@ def load_ohlcv_parquet(
         当数据加载或处理失败时
     """
     import logging
-    
+
     logger = logging.getLogger(__name__)
     parquet_path = Path(parquet_path)
-    
+
     if not parquet_path.exists():
         raise DataLoadError(f"Parquet file not found: {parquet_path}")
-    
+
     # 尝试从缓存获取
     cache = get_cache()
     if use_cache:
@@ -802,13 +802,13 @@ def load_ohlcv_parquet(
         if cached_df is not None:
             logger.debug(f"从缓存加载 Parquet: {parquet_path.name}")
             return cached_df
-    
+
     try:
         # 先尝试获取元数据缓存
         metadata = None
         if use_cache:
             metadata = cache.get_parquet_metadata(parquet_path)
-        
+
         # 如果没有元数据缓存，读取并缓存
         if metadata is None:
             import pyarrow.parquet as pq
@@ -822,20 +822,20 @@ def load_ohlcv_parquet(
             if use_cache:
                 cache.put_parquet_metadata(parquet_path, metadata)
             logger.debug(f"Parquet 元数据: {metadata['num_rows']} 行, {metadata['num_row_groups']} 行组")
-        
+
         # 读取 Parquet 文件
         df = pd.read_parquet(parquet_path)
-        
+
         if df.empty:
             raise DataLoadError(f"Parquet file is empty: {parquet_path}")
-        
+
         # 检测并设置时间索引
         time_col = None
         for col in ["timestamp", "datetime", "time"]:
             if col in df.columns:
                 time_col = col
                 break
-        
+
         if time_col:
             if time_col == "timestamp":
                 df.index = pd.to_datetime(df[time_col], unit="ms")
@@ -843,22 +843,22 @@ def load_ohlcv_parquet(
                 df.index = pd.to_datetime(df[time_col])
             df.index.name = "timestamp"
             df = df.drop(columns=[time_col])
-        
+
         # 按时间范围过滤
         df = _filter_by_date_range(df, start_date, end_date)
-        
+
         if len(df) == 0:
             raise DataLoadError(
                 f"No data in date range [{start_date} to {end_date}] for {parquet_path.name}"
             )
-        
+
         # 缓存结果
         if use_cache:
             cache.put(parquet_path, start_date or "", end_date or "", df)
-        
+
         logger.info(f"✅ 加载 Parquet: {parquet_path.name} ({len(df)} 行)")
         return df
-        
+
     except Exception as e:
         raise DataLoadError(f"Error loading Parquet file {parquet_path}: {e}")
 
@@ -899,12 +899,12 @@ def load_ohlcv_auto(
         当文件格式不支持或加载失败时
     """
     file_path = Path(file_path)
-    
+
     if not file_path.exists():
         raise DataLoadError(f"File not found: {file_path}")
-    
+
     suffix = file_path.suffix.lower()
-    
+
     if suffix == ".parquet":
         return load_ohlcv_parquet(
             file_path,

@@ -1,6 +1,6 @@
 """Additional tests for backtest engine edge cases"""
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from langgraph.infrastructure.backtest.engine import BacktestEngine
 from langgraph.domain.models.strategy import Strategy
 

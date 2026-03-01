@@ -303,7 +303,7 @@ class ConfigLoader:
             report["warnings"].append(
                 f"Active config references unknown environment: {active_config.environment}"
             )
-        
+
         if active_config.strategy not in report["strategies"]:
             report["warnings"].append(
                 f"Active config references unknown strategy: {active_config.strategy}"

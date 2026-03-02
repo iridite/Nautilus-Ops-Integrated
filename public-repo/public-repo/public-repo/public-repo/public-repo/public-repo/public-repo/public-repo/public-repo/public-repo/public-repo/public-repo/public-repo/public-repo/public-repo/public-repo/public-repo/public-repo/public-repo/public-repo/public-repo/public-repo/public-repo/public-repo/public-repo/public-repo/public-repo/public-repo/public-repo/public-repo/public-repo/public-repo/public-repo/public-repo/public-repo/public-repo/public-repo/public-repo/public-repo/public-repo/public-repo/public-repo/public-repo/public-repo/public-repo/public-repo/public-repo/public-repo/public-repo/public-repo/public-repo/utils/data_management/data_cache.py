@@ -90,18 +90,18 @@ class DataCache:
         """
         if not path.exists():
             return None
-            
+
         mtime = path.stat().st_mtime
         cache_key = f"{path}_{mtime}"
-        
+
         if cache_key in self._metadata_cache:
             self.metadata_hits += 1
             logger.debug(f"Parquet 元数据缓存命中: {path.name}")
             return self._metadata_cache[cache_key]
-        
+
         self.metadata_misses += 1
         return None
-    
+
     def put_parquet_metadata(self, path: Path, metadata: Dict[str, Any]):
         """缓存 Parquet 文件元数据
         
@@ -111,7 +111,7 @@ class DataCache:
         """
         mtime = path.stat().st_mtime if path.exists() else 0
         cache_key = f"{path}_{mtime}"
-        
+
         # 元数据缓存不受 max_size 限制（元数据很小）
         self._metadata_cache[cache_key] = metadata
         logger.debug(f"Parquet 元数据已缓存: {path.name}")
@@ -120,10 +120,10 @@ class DataCache:
         """获取缓存统计"""
         total = self.hits + self.misses
         hit_rate = self.hits / total if total > 0 else 0
-        
+
         metadata_total = self.metadata_hits + self.metadata_misses
         metadata_hit_rate = self.metadata_hits / metadata_total if metadata_total > 0 else 0
-        
+
         return {
             "hits": self.hits,
             "misses": self.misses,

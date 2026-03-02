@@ -66,7 +66,7 @@ def _load_strategy_classes(strategy_config):
     module = __import__(module_path, fromlist=[strategy_name, config_class_name])
     StrategyClass = getattr(module, strategy_name)
     ConfigClass = getattr(module, config_class_name)
-    
+
     return StrategyClass, ConfigClass
 
 
@@ -145,9 +145,9 @@ def load_strategy_instances(strategy_config, instrument_ids):
     """动态加载策略实例列表 (支持多标的)"""
     # 硬限制：防止创建过多策略实例导致性能问题
     MAX_STRATEGY_INSTANCES = 20
-    
+
     _validate_instrument_count(instrument_ids, MAX_STRATEGY_INSTANCES)
-    
+
     # 动态导入策略模块
     StrategyClass, ConfigClass = _load_strategy_classes(strategy_config)
 
@@ -155,10 +155,10 @@ def load_strategy_instances(strategy_config, instrument_ids):
     for inst_id in instrument_ids:
         # 构建策略配置
         params = _build_strategy_params(strategy_config, inst_id)
-        
+
         # 处理 btc_instrument_id
         _process_btc_instrument_id(params, inst_id)
-        
+
         # 创建策略实例
         strategy = _create_strategy_instance(StrategyClass, ConfigClass, params)
         strategies.append(strategy)
@@ -181,7 +181,7 @@ def _get_env_file_path(is_testnet: bool) -> Path:
         if not env_file.exists():
             logger.error("Environment file not found: %s", env_file)
             raise FileNotFoundError(f"Environment file not found: {env_file}")
-    
+
     return env_file
 
 
@@ -199,7 +199,7 @@ def _load_api_credentials(sandbox_cfg: SandboxConfig):
             sandbox_cfg.api_passphrase_env,
         )
         raise ValueError("Missing API credentials in environment")
-    
+
     return api_key, api_secret, api_passphrase
 
 
@@ -227,7 +227,7 @@ def _validate_api_credentials(api_key: str, api_secret: str, api_passphrase: str
     )
 
 
-def _build_okx_data_config(api_key: str, api_secret: str, api_passphrase: str, 
+def _build_okx_data_config(api_key: str, api_secret: str, api_passphrase: str,
                            load_ids: frozenset, is_testnet: bool) -> OKXDataClientConfig:
     """构建OKX数据客户端配置"""
     return OKXDataClientConfig(
@@ -245,7 +245,7 @@ def _build_okx_data_config(api_key: str, api_secret: str, api_passphrase: str,
     )
 
 
-def _build_okx_exec_config(api_key: str, api_secret: str, api_passphrase: str, 
+def _build_okx_exec_config(api_key: str, api_secret: str, api_passphrase: str,
                            load_ids: frozenset, is_testnet: bool) -> OKXExecClientConfig:
     """构建OKX执行客户端配置"""
     return OKXExecClientConfig(
@@ -288,7 +288,7 @@ def _load_environment_config(env_name: Optional[str]):
     """加载环境配置"""
     if env_name:
         return load_config(env_name)
-    
+
     # 如果未指定环境，先加载 active 配置获取默认环境
     from core.loader import create_default_loader
     loader = create_default_loader()
@@ -301,9 +301,9 @@ def _validate_sandbox_config(env_config):
     """验证sandbox配置"""
     if not env_config.sandbox:
         raise ValueError("Environment does not have sandbox configuration")
-    
+
     sandbox_cfg = env_config.sandbox
-    
+
     # 生产环境安全检查：禁止在生产模式下使用 allow_missing_instruments
     if not sandbox_cfg.is_testnet and sandbox_cfg.allow_missing_instruments:
         raise ValueError(
@@ -314,7 +314,7 @@ def _validate_sandbox_config(env_config):
             "  2. Set allow_missing_instruments=false (for production)\n"
             "  3. Ensure all instrument files are present before starting"
         )
-    
+
     return sandbox_cfg
 
 
@@ -331,7 +331,7 @@ def _run_preflight_checks(sandbox_cfg, strategy_config):
     except Exception as e:
         logger.exception("Preflight execution failed with an unexpected error: %s", e)
         raise
-    
+
     if problems:
         for p in problems:
             logger.error("Preflight problem: %s", p)
@@ -345,7 +345,7 @@ def _build_trader_config(sandbox_cfg, env_config):
     mode = 'TESTNET' if sandbox_cfg.is_testnet else 'LIVE'
     trader_name = f"{sandbox_cfg.venue}_{mode}_{timestamp}"
     trader_id = TraderId(trader_name.replace("_", "-"))
-    
+
     # 日志配置
     log_dir = BASE_DIR / "log" / "sandbox" / trader_name
     logging_config = LoggingConfig(
@@ -355,7 +355,7 @@ def _build_trader_config(sandbox_cfg, env_config):
         log_colors=True,
         use_pyo3=True,
     )
-    
+
     return trader_id, logging_config
 
 
@@ -383,20 +383,20 @@ def _collect_all_instrument_ids(sandbox_cfg, strategy_config):
     """收集所有需要的标的ID（包括辅助标的）"""
     instrument_ids = sandbox_cfg.instrument_ids
     all_needed_ids = set(instrument_ids)
-    
+
     # 自动探测策略需要的辅助标的（如 BTC）
     if "btc_symbol" in strategy_config.parameters:
         btc_symbol = strategy_config.parameters["btc_symbol"]
-        
+
         if not instrument_ids:
             raise ValueError(
                 "Cannot derive BTC instrument_id: no template instrument_ids provided. "
                 "Please add at least one instrument_id to sandbox.yaml"
             )
-        
+
         aux_id = _derive_btc_instrument_id(btc_symbol, instrument_ids[0])
         all_needed_ids.add(aux_id)
-    
+
     return list(all_needed_ids)
 
 
@@ -443,7 +443,7 @@ def _load_instrument_file(inst_id_str: str):
     """加载单个标的文件"""
     venue_str = inst_id_str.split(".")[-1]
     inst_file = BASE_DIR / "data" / "instrument" / venue_str / f"{inst_id_str.split('.')[0]}.json"
-    
+
     if inst_file.exists():
         inst = load_instrument(inst_file)
         return inst, None
@@ -460,7 +460,7 @@ def _load_all_instruments(node, all_needed_ids):
     """加载所有标的文件"""
     missing_instruments = []
     loaded_instruments = []
-    
+
     for inst_id_str in all_needed_ids:
         inst, missing = _load_instrument_file(inst_id_str)
         if inst:
@@ -468,7 +468,7 @@ def _load_all_instruments(node, all_needed_ids):
             loaded_instruments.append(inst_id_str)
         else:
             missing_instruments.append(missing)
-    
+
     return loaded_instruments, missing_instruments
 
 
@@ -476,7 +476,7 @@ def _validate_loaded_instruments(missing_instruments, sandbox_cfg):
     """验证加载的标的"""
     if not missing_instruments:
         return
-    
+
     if not sandbox_cfg.allow_missing_instruments:
         missing_list = "\n".join([f"  - {inst_id} (expected: {path})" for inst_id, path in missing_instruments])
         raise FileNotFoundError(
@@ -495,13 +495,13 @@ def _validate_loaded_instruments(missing_instruments, sandbox_cfg):
 def _get_valid_instrument_ids(instrument_ids, loaded_instruments):
     """获取有效的标的ID列表"""
     valid_instrument_ids = [inst_id for inst_id in instrument_ids if inst_id in loaded_instruments]
-    
+
     if not valid_instrument_ids:
         raise RuntimeError(
             "No valid instruments available to create strategies. "
             "All instrument files are missing."
         )
-    
+
     if len(valid_instrument_ids) < len(instrument_ids):
         skipped = set(instrument_ids) - set(valid_instrument_ids)
         logger.warning(
@@ -509,7 +509,7 @@ def _get_valid_instrument_ids(instrument_ids, loaded_instruments):
             len(skipped),
             ", ".join(skipped)
         )
-    
+
     return valid_instrument_ids
 
 
@@ -517,7 +517,7 @@ def _load_and_register_strategies(node, strategy_config, valid_instrument_ids):
     """加载并注册策略实例"""
     strategies = load_strategy_instances(strategy_config, valid_instrument_ids)
     logger.info("Loaded %d strategy instance(s) from config %s", len(strategies), getattr(strategy_config, "name", "unknown"))
-    
+
     for strategy in strategies:
         node.trader.add_strategy(strategy)
         sid = getattr(getattr(strategy, "config", None), "strategy_id", None)
@@ -541,22 +541,22 @@ async def run_sandbox(env_name: Optional[str] = None):
     """运行Sandbox"""
     # 加载配置
     env_config, strategy_config, active_config = _load_environment_config(env_name)
-    
+
     # 验证配置
     sandbox_cfg = _validate_sandbox_config(env_config)
-    
+
     # 运行预检查
     _run_preflight_checks(sandbox_cfg, strategy_config)
-    
+
     # 构建交易者配置
     trader_id, logging_config = _build_trader_config(sandbox_cfg, env_config)
-    
+
     # 收集所有需要的标的ID
     all_needed_ids = _collect_all_instrument_ids(sandbox_cfg, strategy_config)
-    
+
     # 构建交易所配置
     exchange_config = _build_exchange_config(sandbox_cfg, all_needed_ids)
-    
+
     # 构建节点配置
     node_config = _build_node_config(sandbox_cfg, trader_id, logging_config, exchange_config)
 
@@ -564,30 +564,30 @@ async def run_sandbox(env_name: Optional[str] = None):
     node = None
     try:
         node = TradingNode(config=node_config)
-        
+
         # 注册客户端工厂
         for venue, factory in exchange_config['data_factory'].items():
             node.add_data_client_factory(venue, factory)
         for venue, factory in exchange_config['exec_factory'].items():
             node.add_exec_client_factory(venue, factory)
-        
+
         node.build()
-        
+
         # 加载所有标的文件
         loaded_instruments, missing_instruments = _load_all_instruments(node, all_needed_ids)
-        
+
         # 验证加载的标的
         _validate_loaded_instruments(missing_instruments, sandbox_cfg)
-        
+
         # 获取有效的标的ID
         valid_instrument_ids = _get_valid_instrument_ids(sandbox_cfg.instrument_ids, loaded_instruments)
-        
+
         # 加载并注册策略实例
         _load_and_register_strategies(node, strategy_config, valid_instrument_ids)
-        
+
         # 运行节点
         await node.run_async()
-    
+
     finally:
         await _cleanup_node(node)
 

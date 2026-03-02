@@ -13,7 +13,7 @@ Delta 中性资金费率套利策略 (Funding Rate Arbitrage)
 from dataclasses import dataclass
 from decimal import Decimal
 
-from nautilus_trader.model.data import Bar, BarType, CustomData, DataType, FundingRateUpdate
+from nautilus_trader.model.data import Bar, BarType, FundingRateUpdate
 from nautilus_trader.model.enums import OrderSide
 from nautilus_trader.model.identifiers import ClientId, InstrumentId
 from nautilus_trader.model.instruments import Instrument

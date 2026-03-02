@@ -39,7 +39,7 @@ from strategy.core.loader import (
     load_strategy_config_class,
 )
 from utils.data_file_checker import check_single_data_file
-from utils.data_management.data_loader import load_ohlcv_csv, load_ohlcv_auto
+from utils.data_management.data_loader import load_ohlcv_auto
 from utils.instrument_loader import load_instrument
 from utils.oi_funding_adapter import OIFundingDataLoader
 

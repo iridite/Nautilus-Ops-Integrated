@@ -9,7 +9,7 @@ from nautilus_trader.model.instruments import Instrument
 from nautilus_trader.model.objects import Quantity
 from nautilus_trader.model.orders import Order
 from nautilus_trader.trading.strategy import Strategy
-from config.constants import DEFAULT_ATR_PERIOD, DEFAULT_RISK_PER_TRADE, DEFAULT_STOP_LOSS, DEFAULT_EMA_PERIOD, DEFAULT_SMA_PERIOD
+from config.constants import DEFAULT_ATR_PERIOD, DEFAULT_RISK_PER_TRADE
 
 
 class BaseStrategyConfig(StrategyConfig):  # pyright: ignore[reportGeneralTypeIssues]

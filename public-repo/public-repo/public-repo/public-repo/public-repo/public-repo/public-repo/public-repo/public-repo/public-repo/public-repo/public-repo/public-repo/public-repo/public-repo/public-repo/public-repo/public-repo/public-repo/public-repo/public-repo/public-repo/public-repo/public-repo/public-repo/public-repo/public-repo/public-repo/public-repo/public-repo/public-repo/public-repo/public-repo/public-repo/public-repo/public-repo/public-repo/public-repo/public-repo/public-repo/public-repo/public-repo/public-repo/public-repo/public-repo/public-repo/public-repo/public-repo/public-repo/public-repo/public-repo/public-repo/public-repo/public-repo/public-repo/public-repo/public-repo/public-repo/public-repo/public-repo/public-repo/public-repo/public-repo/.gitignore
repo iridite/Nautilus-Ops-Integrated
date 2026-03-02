@@ -1,0 +1,22 @@
+# Ignore Python virtual environments and IDE settings
+.idea
+.venv
+__pycache__/
+*.pyc
+.DS_Store
+dist/
+build/
+.vscode/
+
+# Data directory (pure data storage)
+data/
+output/**
+log/**
+
+# Ignore configuration files
+# config/settings.py # since there is only me doing development, I will keep this unignored for now
+
+.langgraph_api/
+.aider*
+.env
+test.env

@@ -109,7 +109,11 @@ class TestAdapterHelperMethods(unittest.TestCase):
     @patch("core.adapter.ConfigLoader")
     def test_extract_symbols_from_universe(self, mock_loader):
         adapter = ConfigAdapter()
-        universe_data = {"2024-01-01": ["BTCUSDT", "ETHUSDT"], "2024-01-02": ["BTCUSDT", "SOLUSDT"]}
+        adapter.env_config = Mock()
+        adapter.env_config.backtest = Mock()
+        adapter.env_config.backtest.start_date = "2024-01-01"
+        adapter.env_config.backtest.end_date = "2024-12-31"
+        universe_data = {"2024-01": ["BTCUSDT", "ETHUSDT"], "2024-02": ["BTCUSDT", "SOLUSDT"]}
         symbols = adapter._extract_symbols_from_universe(universe_data)
         self.assertIsInstance(symbols, set)
         self.assertIn("BTCUSDT", symbols)
@@ -220,17 +224,17 @@ class TestSymbolValidation(unittest.TestCase):
             self.assertIn("only alphanumeric characters", str(cm.exception))
 
     def test_max_length_boundary(self):
-        """Test symbol length validation at boundary (20 chars)"""
-        # Exactly 20 chars - should pass
-        valid_symbol = "A" * 16 + "USDT"  # 16 + 4 = 20
+        """Test symbol length validation at boundary (30 chars)"""
+        # Exactly 30 chars - should pass
+        valid_symbol = "A" * 26 + "USDT"  # 26 + 4 = 30
         config = self.adapter.create_instrument_config(valid_symbol)
         self.assertIsNotNone(config)
 
-        # 21 chars - should fail
-        invalid_symbol = "A" * 17 + "USDT"  # 17 + 4 = 21
+        # 31 chars - should fail
+        invalid_symbol = "A" * 27 + "USDT"  # 27 + 4 = 31
         with self.assertRaises(ValueError) as cm:
             self.adapter.create_instrument_config(invalid_symbol)
-        self.assertIn("exceeds maximum length of 20", str(cm.exception))
+        self.assertIn("exceeds maximum length of 30", str(cm.exception))
 
 
 if __name__ == "__main__":

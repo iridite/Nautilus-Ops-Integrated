@@ -1,0 +1,43 @@
+[project]
+name = "nautilus-practice"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12.12, <3.13"
+
+dependencies = [
+    "ccxt>=4.5.28",
+    "joblib>=1.5.3",
+    "jupyterlab>=4.5.1",
+    "lightgbm>=4.6.0",
+    "nautilus-trader",
+    "pandas-stubs~=2.3.3",
+    "plotly>=6.5.0",
+    "pydantic>=2.12.5",
+    "python-dotenv>=1.2.1",
+    "pyyaml>=6.0.3",
+    "ruff>=0.15.0",
+    "scikit-learn>=1.8.0",
+    "ta>=0.11.0",
+    "tqdm>=4.66.0",
+]
+
+[tool.uv]
+# 必须保留，允许安装 alpha/dev 版本
+prerelease = "allow"
+
+[[tool.uv.index]]
+name = "nautilus"
+url = "https://packages.nautechsystems.io/simple"
+
+[tool.uv.sources]
+nautilus-trader = { index = "nautilus" }
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501", "E402", "N803", "N805", "N806", "I001"]
+per-file-ignores = { "tests/**" = ["F401"] }
